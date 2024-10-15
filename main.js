@@ -48,7 +48,7 @@ const server = http.createServer(async (req, res) => {
         }
         break;
 
-        case 'PUT':
+      case 'PUT':
         // Запис нового файлу або оновлення існуючого
         let body = [];
         req.on('data', chunk => {
@@ -59,6 +59,23 @@ const server = http.createServer(async (req, res) => {
           res.statusCode = 201; // Created
           res.end('Image saved');
         });
+        break;
+
+      case 'DELETE':
+        // Видалення файлу з кешу
+        try {
+          await fs.unlink(filePath);
+          res.statusCode = 200; // OK
+          res.end('Image deleted');
+        } catch (error) {
+          if (error.code === 'ENOENT') {
+            res.statusCode = 404; // Not Found
+            res.end('Image not found');
+          } else {
+            res.statusCode = 500; // Internal Server Error
+            res.end('Server error');
+          }
+        }
         break;
 
       default:
