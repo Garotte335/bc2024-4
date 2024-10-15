@@ -1,5 +1,7 @@
 const http = require('http');
 const { program } = require('commander');
+const fs = require('fs').promises;
+const path = require('path');
 
 // Налаштовуємо програму для прийому аргументів командного рядка
 program
@@ -10,11 +12,50 @@ program
 
 const options = program.opts();
 
+// Функція для отримання шляху до файлу у кеші
+const getCacheFilePath = (code) => path.join(options.cache, `${code}.jpg`);
+
 // Створюємо HTTP сервер
-const server = http.createServer((req, res) => {
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'text/plain');
-  res.end('Hello from the web server!\n');
+const server = http.createServer(async (req, res) => {
+  const method = req.method;
+  const urlParts = req.url.split('/');
+  const code = urlParts[1]; // отримаємо код з URL
+
+  if (!code) {
+    res.statusCode = 400; // Bad Request
+    res.end('HTTP code not specified');
+    return;
+  }
+
+  const filePath = getCacheFilePath(code);
+
+  try {
+    switch (method) {
+      case 'GET':
+        // Читання файлу з кешу
+        try {
+          const data = await fs.readFile(filePath);
+          res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+          res.end(data);
+        } catch (error) {
+          if (error.code === 'ENOENT') {
+            res.statusCode = 404; // Not Found
+            res.end('Image not found');
+          } else {
+            res.statusCode = 500; // Internal Server Error
+            res.end('Server error');
+          }
+        }
+        break;
+
+      default:
+        res.statusCode = 405; // Method Not Allowed
+        res.end('Method not allowed');
+    }
+  } catch (error) {
+    res.statusCode = 500;
+    res.end('Server error');
+  }
 });
 
 // Запускаємо сервер з переданими параметрами host і port
