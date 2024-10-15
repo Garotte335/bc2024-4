@@ -2,6 +2,7 @@ const http = require('http');
 const { program } = require('commander');
 const fs = require('fs').promises;
 const path = require('path');
+const superagent = require('superagent'); // Додано
 
 // Налаштовуємо програму для прийому аргументів командного рядка
 program
@@ -14,6 +15,17 @@ const options = program.opts();
 
 // Функція для отримання шляху до файлу у кеші
 const getCacheFilePath = (code) => path.join(options.cache, `${code}.jpg`);
+
+// Функція для отримання картинки з http.cat
+const fetchImageFromHttpCat = async (code) => {
+  const url = `https://http.cat/${code}`;
+  try {
+    const response = await superagent.get(url);
+    return response.body; // Повертаємо вміст зображення
+  } catch (error) {
+    throw new Error('Failed to fetch image from http.cat');
+  }
+};
 
 // Створюємо HTTP сервер
 const server = http.createServer(async (req, res) => {
@@ -39,8 +51,16 @@ const server = http.createServer(async (req, res) => {
           res.end(data);
         } catch (error) {
           if (error.code === 'ENOENT') {
-            res.statusCode = 404; // Not Found
-            res.end('Image not found');
+            // Якщо файл не знайдено, спробуємо отримати його з http.cat
+            try {
+              const imageData = await fetchImageFromHttpCat(code);
+              await fs.writeFile(filePath, imageData); // Зберігаємо в кеш
+              res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+              res.end(imageData); // Відправляємо зображення у відповідь
+            } catch (fetchError) {
+              res.statusCode = 404; // Not Found
+              res.end('Image not found on http.cat');
+            }
           } else {
             res.statusCode = 500; // Internal Server Error
             res.end('Server error');
