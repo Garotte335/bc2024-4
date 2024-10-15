@@ -48,6 +48,19 @@ const server = http.createServer(async (req, res) => {
         }
         break;
 
+        case 'PUT':
+        // Запис нового файлу або оновлення існуючого
+        let body = [];
+        req.on('data', chunk => {
+          body.push(chunk);
+        }).on('end', async () => {
+          body = Buffer.concat(body);
+          await fs.writeFile(filePath, body);
+          res.statusCode = 201; // Created
+          res.end('Image saved');
+        });
+        break;
+
       default:
         res.statusCode = 405; // Method Not Allowed
         res.end('Method not allowed');
